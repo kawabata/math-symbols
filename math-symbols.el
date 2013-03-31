@@ -805,6 +805,16 @@
       ;; exceptional case
       ?- ?₋)))
 
+(defvar math-symbols-superscript-regexp
+  (regexp-opt
+   (loop for key being the hash-keys of math-symbols-superscript-table
+         collect (char-to-string key))))
+
+(defvar math-symbols-superscript-to-regexp
+  (regexp-opt
+   (loop for key being the hash-values of math-symbols-superscript-table
+         collect (char-to-string key))))
+
 (defvar math-symbols-superscript-table
   #s(hash-table
      data
@@ -826,6 +836,17 @@
       ?人 ?㆟ ?四 ?㆕ ?地 ?㆞ ?天 ?㆝ ?甲 ?㆙ ?ꝯ ?ꝰ
       ;; exceptional case
       ?- ?⁻)))
+
+(defvar math-symbols-subscript-regexp
+  (regexp-opt
+   (loop for key being the hash-keys of math-symbols-subscript-table
+         collect (char-to-string key))))
+
+(defvar math-symbols-subscript-to-regexp
+  (regexp-opt
+   (loop for key being the hash-values of math-symbols-subscript-table
+         collect (char-to-string key))))
+
 
 (defvar math-symbols-variations
   '("∩︀" ; INTERSECTION with serifs
@@ -856,141 +877,97 @@
 (defvar math-symbols-style-names
   (mapcar 'car math-symbols-style-alist))
 
-(defvar math-symbols-superscript-regexp
-  (let ((table (eval (assoc-default "SUPERSCRIPT" math-symbols-style-alist)))
-        result)
-    (maphash (lambda (k _v) (push k result)) table)
-    (regexp-opt (mapcar 'char-to-string result))))
+(defun math-symbols-stylize-region (script)
+  (let ((table (symbol-value
+                (intern (concat "math-symbols-" (symbol-name script) "-table")))))
+    (lambda (from to &optional noerror)
+      (interactive "r*")
+      (save-excursion
+        (save-restriction
+          (narrow-to-region from to)
+          (goto-char (point-min))
+          (while (not (eobp))
+            (let ((char (gethash (char-after (point)) table)))
+              (if (null char)
+                  (if noerror (forward-char)
+                    (error "char for point %d not found!" (point)))
+                (delete-char 1) (insert char)))))))))
 
-(defvar math-symbols-superscript-to-regexp
-  (let ((table (eval (assoc-default "SUPERSCRIPT" math-symbols-style-alist)))
-        result)
-    (maphash (lambda (_k v) (push v result)) table)
-    (regexp-opt (mapcar 'char-to-string result))))
+(defun math-symbols-stylize-string (script)
+  (lambda (string)
+    (with-temp-buffer
+      (insert string)
+      (funcall (math-symbols-stylize-region script)
+               (point-min) (point-max)))))
 
-(defvar math-symbols-subscript-regexp
-  (let ((table (eval (assoc-default "SUBSCRIPT" math-symbols-style-alist)))
-        result)
-    (maphash (lambda (k _v) (push k result)) table)
-    (regexp-opt (mapcar 'char-to-string result))))
-
-(defvar math-symbols-subscript-to-regexp
-  (let ((table (eval (assoc-default  "SUBSCRIPT" math-symbols-style-alist)))
-        result)
-    (maphash (lambda (_k v) (push v result)) table)
-    (regexp-opt (mapcar 'char-to-string result))))
-
-;; functions
-(defun math-symbols-style-table (style)
-  (or (eval (assoc-default style math-symbols-style-alist))
-      (error "Not proper style!")))
-
-;;;###autoload
-(defun math-symbols-stylize-region (from to style)
-  "Mathematically Stylize REGION.  STYLE may be one of `math-symbols-style-names'"
-  (interactive (list (region-beginning) (region-end) 
-                     (completing-read "Style: " math-symbols-style-names)))
-  (let ((table (math-symbols-style-table style)) char)
-    (save-excursion
-      (save-restriction
-        (narrow-to-region from to)
-        (goto-char (point-min))
-        (while (not (eobp))
-          (setq char (gethash (char-after (point)) table))
-          (if (null char) (forward-char)
-            (delete-char 1) (insert char)))))))
-
-(defun math-symbols-stylize (style key)
-  (interactive (list (completing-read "Style: " math-symbols-style-names)
-                     (read-key "Key:" )))
-  (let* ((table (math-symbols-style-table style))
-         (char (gethash key table)))
-    (if char (insert char) (message "Math symbol not found!"))))
+;;; code generator
+;;
+;; (dolist (s '(bold italic bold-italic script bold-script fraktur bold-fraktur
+;;              double-struck sans-serif sans-serif-bold sans-serif-italic 
+;;              sans-serif-bold-italic monospace superscript subscript))
+;;   (insert ";;;###autoload\n")
+;;   (insert (format "(defalias 'math-symbols-%s-region (math-symbols-stylize-region '%s))\n" s s))
+;;   (insert (format "(defalias 'math-symbols-%s-string (math-symbols-stylize-string '%s))\n\n" s s)))
 
 ;;;###autoload
-(defun math-symbols-bold-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "BOLD"))
+(defalias 'math-symbols-bold-region (math-symbols-stylize-region 'bold))
+(defalias 'math-symbols-bold-string (math-symbols-stylize-string 'bold))
 
 ;;;###autoload
-(defun math-symbols-italic-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "ITALIC"))
+(defalias 'math-symbols-italic-region (math-symbols-stylize-region 'italic))
+(defalias 'math-symbols-italic-string (math-symbols-stylize-string 'italic))
 
 ;;;###autoload
-(defun math-symbols-bold-italic-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "BOLD ITALIC"))
+(defalias 'math-symbols-bold-italic-region (math-symbols-stylize-region 'bold-italic))
+(defalias 'math-symbols-bold-italic-string (math-symbols-stylize-string 'bold-italic))
 
 ;;;###autoload
-(defun math-symbols-script-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SCRIPT"))
+(defalias 'math-symbols-script-region (math-symbols-stylize-region 'script))
+(defalias 'math-symbols-script-string (math-symbols-stylize-string 'script))
 
 ;;;###autoload
-(defun math-symbols-bold-script-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "BOLD SCRIPT"))
+(defalias 'math-symbols-bold-script-region (math-symbols-stylize-region 'bold-script))
+(defalias 'math-symbols-bold-script-string (math-symbols-stylize-string 'bold-script))
 
 ;;;###autoload
-(defun math-symbols-fraktur-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "FRAKTUR"))
+(defalias 'math-symbols-fraktur-region (math-symbols-stylize-region 'fraktur))
+(defalias 'math-symbols-fraktur-string (math-symbols-stylize-string 'fraktur))
 
 ;;;###autoload
-(defun math-symbols-bold-fraktur-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "BOLD FRAKTUR"))
+(defalias 'math-symbols-bold-fraktur-region (math-symbols-stylize-region 'bold-fraktur))
+(defalias 'math-symbols-bold-fraktur-string (math-symbols-stylize-string 'bold-fraktur))
 
 ;;;###autoload
-(defun math-symbols-double-struck-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "DOUBLE-STRUCK"))
+(defalias 'math-symbols-double-struck-region (math-symbols-stylize-region 'double-struck))
+(defalias 'math-symbols-double-struck-string (math-symbols-stylize-string 'double-struck))
 
 ;;;###autoload
-(defun math-symbols-sans-serif-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SANS-SERIF"))
+(defalias 'math-symbols-sans-serif-region (math-symbols-stylize-region 'sans-serif))
+(defalias 'math-symbols-sans-serif-string (math-symbols-stylize-string 'sans-serif))
 
 ;;;###autoload
-(defun math-symbols-sans-serif-bold-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SANS-SERIF BOLD"))
+(defalias 'math-symbols-sans-serif-bold-region (math-symbols-stylize-region 'sans-serif-bold))
+(defalias 'math-symbols-sans-serif-bold-string (math-symbols-stylize-string 'sans-serif-bold))
 
 ;;;###autoload
-(defun math-symbols-sans-serif-italic-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SANS-SERIF ITALIC"))
+(defalias 'math-symbols-sans-serif-italic-region (math-symbols-stylize-region 'sans-serif-italic))
+(defalias 'math-symbols-sans-serif-italic-string (math-symbols-stylize-string 'sans-serif-italic))
 
 ;;;###autoload
-(defun math-symbols-sans-serif-bold-italic-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SANS-SERIF BOLD ITALIC"))
+(defalias 'math-symbols-sans-serif-bold-italic-region (math-symbols-stylize-region 'sans-serif-bold-italic))
+(defalias 'math-symbols-sans-serif-bold-italic-string (math-symbols-stylize-string 'sans-serif-bold-italic))
 
 ;;;###autoload
-(defun math-symbols-monospace-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "MONOSPACE"))
+(defalias 'math-symbols-monospace-region (math-symbols-stylize-region 'monospace))
+(defalias 'math-symbols-monospace-string (math-symbols-stylize-string 'monospace))
 
 ;;;###autoload
-(defun math-symbols-superscript-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SUPERSCRIPT"))
-(defun math-symbols-superscript-string (string)
-  (with-temp-buffer
-    (insert string)
-    (math-symbols-superscript-region (point-min) (point-max))
-    (buffer-string)))
+(defalias 'math-symbols-superscript-region (math-symbols-stylize-region 'superscript))
+(defalias 'math-symbols-superscript-string (math-symbols-stylize-string 'superscript))
 
 ;;;###autoload
-(defun math-symbols-subscript-region (from to)
-  (interactive "r*")
-  (math-symbols-stylize-region from to "SUBSCRIPT"))
-(defun math-symbols-subscript-string (string)
-  (with-temp-buffer
-    (insert string)
-    (math-symbols-subscript-region (point-min) (point-max))
-    (buffer-string)))
+(defalias 'math-symbols-subscript-region (math-symbols-stylize-region 'subscript))
+(defalias 'math-symbols-subscript-string (math-symbols-stylize-string 'subscript))
 
 (defun math-symbols-super/subscript-from-tex-region (from to)
   (save-excursion

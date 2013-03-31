@@ -11,7 +11,7 @@ You can convert Math symbols to TeX commands and vice versa by `M-x math-symbols
 
 ## Examples:
 
-    "Fractur" → "𝔉𝔯𝔞𝔠𝔱𝔲𝔯" (M-x math-fraktur-region)
-    "black" → "𝒷ℓ𝒶𝒸𝓀" (M-x math-script-region)
-    "Quo Vadis" → "ℚ𝕦𝕠 𝕍𝕒𝕕𝕚𝕤" (M-x math-double-struck-region)
-    "3+(2-1)=4" → "³⁺⁽²-¹⁾⁼⁴" (M-x math-superscript-region)
+    "Fractur" → "𝔉𝔯𝔞𝔠𝔱𝔲𝔯" (M-x math-symbols-fraktur-region)
+    "black" → "𝒷ℓ𝒶𝒸𝓀" (M-x math-symbols-script-region)
+    "Quo Vadis" → "ℚ𝕦𝕠 𝕍𝕒𝕕𝕚𝕤" (M-x math-symbols-double-struck-region)
+    "3+(2-1)=4" → "³⁺⁽²-¹⁾⁼⁴" (M-x math-symbols-superscript-region)

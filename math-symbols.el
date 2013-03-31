@@ -51,6 +51,8 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'cl))
+
 ;; data generated from `unimathsymbols.txt'
 (defvar math-symbols-tex-table
   #s(hash-table data
@@ -805,12 +807,12 @@
       ;; exceptional case
       ?- ?₋)))
 
-(defvar math-symbols-superscript-regexp
+(defvar math-symbols-subscript-regexp
   (regexp-opt
    (loop for key being the hash-keys of math-symbols-superscript-table
          collect (char-to-string key))))
 
-(defvar math-symbols-superscript-to-regexp
+(defvar math-symbols-subscript-to-regexp
   (regexp-opt
    (loop for key being the hash-values of math-symbols-superscript-table
          collect (char-to-string key))))
@@ -837,12 +839,12 @@
       ;; exceptional case
       ?- ?⁻)))
 
-(defvar math-symbols-subscript-regexp
+(defvar math-symbols-superscript-regexp
   (regexp-opt
    (loop for key being the hash-keys of math-symbols-subscript-table
          collect (char-to-string key))))
 
-(defvar math-symbols-subscript-to-regexp
+(defvar math-symbols-superscript-to-regexp
   (regexp-opt
    (loop for key being the hash-values of math-symbols-subscript-table
          collect (char-to-string key))))

@@ -883,7 +883,8 @@
   (let ((table (symbol-value
                 (intern (concat "math-symbols-" (symbol-name script) "-table")))))
     (lambda (from to &optional noerror)
-      (interactive "r*")
+      (interactive "r*p")
+      (setq noerror (or noerror current-prefix-arg))
       (save-excursion
         (save-restriction
           (narrow-to-region from to)
@@ -900,7 +901,8 @@
     (with-temp-buffer
       (insert string)
       (funcall (math-symbols-stylize-region script)
-               (point-min) (point-max)))))
+               (point-min) (point-max))
+      (buffer-string))))
 
 ;;; code generator
 ;;

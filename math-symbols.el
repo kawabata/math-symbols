@@ -4,7 +4,9 @@
 ;; Description: Math symbol input and TeX conversion tool.
 ;; Author: KAWABATA, Taichi <kawabata.taichi_at_gmail.com>
 ;; Created: 2013-03-25
-;; Version: 0.4
+;; Modified: 2013-04-29
+;; Version: 0.5
+;; Package-Requires: ((helm))
 ;; Keywords: math symbols, tex, latex
 ;; URL: https://github.com/kawabata/math-symbols
 ;;
@@ -807,16 +809,6 @@
       ;; exceptional case
       ?- ?₋)))
 
-(defvar math-symbols-subscript-regexp
-  (regexp-opt
-   (loop for key being the hash-keys of math-symbols-superscript-table
-         collect (char-to-string key))))
-
-(defvar math-symbols-subscript-to-regexp
-  (regexp-opt
-   (loop for key being the hash-values of math-symbols-superscript-table
-         collect (char-to-string key))))
-
 (defvar math-symbols-superscript-table
   #s(hash-table
      data
@@ -838,6 +830,16 @@
       ?人 ?㆟ ?四 ?㆕ ?地 ?㆞ ?天 ?㆝ ?甲 ?㆙ ?ꝯ ?ꝰ
       ;; exceptional case
       ?- ?⁻)))
+
+(defvar math-symbols-subscript-regexp
+  (regexp-opt
+   (loop for key being the hash-keys of math-symbols-superscript-table
+         collect (char-to-string key))))
+
+(defvar math-symbols-subscript-to-regexp
+  (regexp-opt
+   (loop for key being the hash-values of math-symbols-superscript-table
+         collect (char-to-string key))))
 
 (defvar math-symbols-superscript-regexp
   (regexp-opt
@@ -1064,5 +1066,43 @@ For example, `𝒫' will be converted to `mathcal{P}'."
             (delete-char 1) (insert "\\" tex))))
       (math-symbols-super/subscript-to-tex-region (point-min) (point-max))
       (ucs-normalize-NFKC-region (point-min) (point-max)))))
+
+(defvar math-symbols-len
+  (loop for key being the hash-keys of math-symbols-tex-table
+        maximize (length (gethash key math-symbols-tex-table))))
+
+(defvar math-symbols-helm-source
+  '((name . "Math Symbols")
+    (init . math-symbols-helm-init)
+    (candidate-number-limit . 9999)
+    (candidates-in-buffer)
+    (mode-line . helm-mode-line-string)
+    (action . (("Insert" . math-symbols-helm-insert-char))))
+  "Source for collecting math symbols.")
+
+(defun math-symbols-helm-init ()
+  "Initialize an helm buffer with math symbols."
+  (with-current-buffer (helm-candidate-buffer
+                        (get-buffer-create "*math-symbols helm*"))
+    (loop for key being the hash-keys of math-symbols-tex-table
+          for val = (gethash key math-symbols-tex-table)
+          for len = (length val)
+          for diff = (+ (- math-symbols-len len) 2)
+          unless (string= "" val)
+          do (insert (concat val ":" (make-string diff ? ))
+                     key "\n"))))
+
+(defun math-symbols-helm-insert-char (candidate)
+  (with-helm-current-buffer
+    (insert
+     (replace-regexp-in-string
+      " " ""
+      (cadr (split-string candidate ":"))))))
+
+;;;###autoload
+(defun math-symbols-helm ()
+  (interactive)
+  (helm :sources 'math-symbols-helm-source
+        :keymap helm-map))
 
 (provide 'math-symbols)

@@ -1,0 +1,50 @@
+(This file is copied from commentary section of math-symbols.el)
+
+* Description
+
+This program let you input/convert math symbols in TeX names.
+(M-x math-input or M-x math-symbols-from-tex-region).
+It also provides mathematical stylization function.
+You can input various mathematical symbols by `M-x math-insert'.
+
+* Example:
+: "f(x+y)" → "𝑓(𝑥+𝑦)" (M-x math-italic-region)
+: "Fraktur" → "𝔉𝔯𝔞𝔨𝔱𝔲𝔯" (M-x math-fraktur-region)
+: "black" → "𝒷ℓ𝒶𝒸𝓀" (M-x math-symbols-script-region)
+: "Quo Vadis" → "ℚ𝕦𝕠 𝕍𝕒𝕕𝕚𝕤" (M-x math-symbols-double-struck-region)
+: "3+(2-1)=4" → "³⁺⁽²-¹⁾⁼⁴" (M-x math-symbols-superscript-region)
+: "\int g(x^2)dx = \pi e^(ix)" → "∫ 𝑔(𝑥²)𝑑𝑥 = 𝜋 𝑒^(𝑖𝑥)"
+: (M-x math-symbols-from-tex-region)
+
+* Fonts
+
+You should install Math fonts "STIX" and add it to your fontset to
+fully utilize this tool.  Recent MacOS includes this font by default.
+You can freely download them from [[STIX website][http://www.stixfonts.org]].
+
+* Licenses
+
+This program incorporates `unimathsymbols.txt' data file which is
+based upon "LaTeX Project Public License".  This program is GPL.
+
+* Math Symbols Table
+
+| styles / scripts         | alphabets | greeks※ | numerals |
+|--------------------------+-----------+----------+----------|
+| bold                     | yes       | yes      | yes      |
+| (bold) italic            | yes       | yes      | yes      |
+| (bold) fraktur           | yes       | no       | no       |
+| (bold) script            | yes       | no       | no       |
+| double-struck            | yes       | partial  | yes      |
+| monospace                | yes       | no       | yes      |
+| sans-serif (italic)      | yes       | no       | yes      |
+| sans-serif bold (italic) | yes       | yes      | yes      |
+| subscript                | partial   | no       | yes      |
+| superscript              | partial   | no       | yes      |
+
+ ※ `greeks' include greek symbols and nabla (ϵ, ϑ, ϰ, ϕ, ϱ, ϖ, ∇).
+
+* References
+
+- UTR#25 UNICODE SUPPORT FOR MATHEMATICS
+  (http://www.unicode.org/reports/tr25/tr25-6.html)

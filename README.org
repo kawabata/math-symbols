@@ -5,7 +5,7 @@
 This program let you input/convert math symbols in TeX names.
 (M-x math-input or M-x math-symbols-from-tex-region).
 It also provides mathematical stylization function.
-You can input various mathematical symbols by `M-x math-insert'.
+You can input various mathematical symbols by `M-x math-symbols-insert'.
 
 * Example:
 : "f(x+y)" → "𝑓(𝑥+𝑦)" (M-x math-italic-region)

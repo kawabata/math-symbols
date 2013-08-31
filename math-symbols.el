@@ -4,7 +4,8 @@
 ;; Description: Math symbol input and TeX conversion tool.
 ;; Author: KAWABATA, Taichi <kawabata.taichi_at_gmail.com>
 ;; Created: 2013-03-25
-;; Version: 20130813.1152
+;; Modified: 2013-08-31/12:58
+;; Version: 1.5
 ;; Package-Requires: ((helm "1.0"))
 ;; Keywords: math symbols, tex, latex
 ;; URL: https://github.com/kawabata/math-symbols
@@ -16,7 +17,7 @@
 ;; This program let you input/convert math symbols in TeX names.
 ;; (M-x math-input or M-x math-symbols-from-tex-region).
 ;; It also provides mathematical stylization function.
-;; You can input various mathematical symbols by `M-x math-insert'.
+;; You can input various mathematical symbols by `M-x math-symbols-insert'.
 ;; 
 ;; * Example:
 ;; : "f(x+y)" → "𝑓(𝑥+𝑦)" (M-x math-italic-region)
@@ -376,100 +377,151 @@
 (defvar math-symbols-style-names
   (mapcar 'car math-symbols-style-alist))
 
-;;;###autoload
-(defun math-symbols-stylize-region (script)
+(defun math-symbols-stylize-region (script from to &optional noerror)
   (let ((table (symbol-value
                 (intern (concat "math-symbols-" (symbol-name script) "-table")))))
-    (lambda (from to &optional noerror)
-      (interactive "r*p")
-      (setq noerror (or noerror current-prefix-arg))
-      (save-excursion
-        (save-restriction
-          (narrow-to-region from to)
-          (goto-char (point-min))
-          (while (not (eobp))
-            (let ((char (gethash (char-after (point)) table)))
-              (if (null char)
-                  (if noerror (forward-char)
-                    (error "char for point %d not found!" (point)))
-                (delete-char 1) (insert char)))))))))
+    (setq noerror (or noerror current-prefix-arg))
+    (save-excursion
+      (save-restriction
+        (narrow-to-region from to)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let ((char (gethash (char-after (point)) table)))
+            (if (null char)
+                (if noerror (forward-char)
+                  (error "char for point %d not found!" (point)))
+              (delete-char 1) (insert char))))))))
 
-(defun math-symbols-stylize-string (script)
-  (lambda (string)
-    (with-temp-buffer
-      (insert string)
-      (funcall (math-symbols-stylize-region script)
-               (point-min) (point-max))
-      (buffer-string))))
+(defun math-symbols-stylize-string (script string &optional noerror)
+  (with-temp-buffer
+    (insert string)
+    (math-symbols-stylize-region script (point-min) (point-max) noerror)
+    (buffer-string)))
 
 ;;; code generator
 ;;
 ;; (dolist (s '(bold italic bold-italic script bold-script fraktur bold-fraktur
-;;              double-struck sans-serif sans-serif-bold sans-serif-italic 
-;;              sans-serif-bold-italic monospace superscript subscript))
-;;   (insert ";;;###autoload\n")
-;;   (insert (format "(defalias 'math-symbols-%s-region (math-symbols-stylize-region '%s))\n" s s))
-;;   (insert (format "(defalias 'math-symbols-%s-string (math-symbols-stylize-string '%s))\n\n" s s)))
+;;               double-struck sans-serif sans-serif-bold sans-serif-italic 
+;;               sans-serif-bold-italic monospace superscript subscript))
+;;    (insert ";;;###autoload\n")
+;;    (insert (format "(defun math-symbols-%s-region (from to &optional noerror)\n" s))
+;;    (insert (format "  (interactive \"r\") (math-symbols-stylize-region '%s from to noerror))\n" s))
+;;    (insert ";;;###autoload\n")
+;;    (insert (format "(defun math-symbols-%s-string (string &optional noerror)\n" s))
+;;    (insert (format "  (math-symbols-stylize-string '%s string noerror))\n\n" s)))
+
 
 ;;;###autoload
-(defalias 'math-symbols-bold-region (math-symbols-stylize-region 'bold))
-(defalias 'math-symbols-bold-string (math-symbols-stylize-string 'bold))
+(defun math-symbols-bold-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'bold from to noerror))
+;;;###autoload
+(defun math-symbols-bold-string (string &optional noerror)
+  (math-symbols-stylize-string 'bold string &optional noerror))
+;;;###autoload
+(defun math-symbols-bold-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'bold from to noerror))
+;;;###autoload
+(defun math-symbols-bold-string (string &optional noerror)
+  (math-symbols-stylize-string 'bold string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-italic-region (math-symbols-stylize-region 'italic))
-(defalias 'math-symbols-italic-string (math-symbols-stylize-string 'italic))
+(defun math-symbols-italic-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'italic from to noerror))
+;;;###autoload
+(defun math-symbols-italic-string (string &optional noerror)
+  (math-symbols-stylize-string 'italic string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-bold-italic-region (math-symbols-stylize-region 'bold-italic))
-(defalias 'math-symbols-bold-italic-string (math-symbols-stylize-string 'bold-italic))
+(defun math-symbols-bold-italic-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'bold-italic from to noerror))
+;;;###autoload
+(defun math-symbols-bold-italic-string (string &optional noerror)
+  (math-symbols-stylize-string 'bold-italic string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-script-region (math-symbols-stylize-region 'script))
-(defalias 'math-symbols-script-string (math-symbols-stylize-string 'script))
+(defun math-symbols-script-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'script from to noerror))
+;;;###autoload
+(defun math-symbols-script-string (string &optional noerror)
+  (math-symbols-stylize-string 'script string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-bold-script-region (math-symbols-stylize-region 'bold-script))
-(defalias 'math-symbols-bold-script-string (math-symbols-stylize-string 'bold-script))
+(defun math-symbols-bold-script-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'bold-script from to noerror))
+;;;###autoload
+(defun math-symbols-bold-script-string (string &optional noerror)
+  (math-symbols-stylize-string 'bold-script string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-fraktur-region (math-symbols-stylize-region 'fraktur))
-(defalias 'math-symbols-fraktur-string (math-symbols-stylize-string 'fraktur))
+(defun math-symbols-fraktur-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'fraktur from to noerror))
+;;;###autoload
+(defun math-symbols-fraktur-string (string &optional noerror)
+  (math-symbols-stylize-string 'fraktur string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-bold-fraktur-region (math-symbols-stylize-region 'bold-fraktur))
-(defalias 'math-symbols-bold-fraktur-string (math-symbols-stylize-string 'bold-fraktur))
+(defun math-symbols-bold-fraktur-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'bold-fraktur from to noerror))
+;;;###autoload
+(defun math-symbols-bold-fraktur-string (string &optional noerror)
+  (math-symbols-stylize-string 'bold-fraktur string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-double-struck-region (math-symbols-stylize-region 'double-struck))
-(defalias 'math-symbols-double-struck-string (math-symbols-stylize-string 'double-struck))
+(defun math-symbols-double-struck-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'double-struck from to noerror))
+;;;###autoload
+(defun math-symbols-double-struck-string (string &optional noerror)
+  (math-symbols-stylize-string 'double-struck string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-sans-serif-region (math-symbols-stylize-region 'sans-serif))
-(defalias 'math-symbols-sans-serif-string (math-symbols-stylize-string 'sans-serif))
+(defun math-symbols-sans-serif-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'sans-serif from to noerror))
+;;;###autoload
+(defun math-symbols-sans-serif-string (string &optional noerror)
+  (math-symbols-stylize-string 'sans-serif string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-sans-serif-bold-region (math-symbols-stylize-region 'sans-serif-bold))
-(defalias 'math-symbols-sans-serif-bold-string (math-symbols-stylize-string 'sans-serif-bold))
+(defun math-symbols-sans-serif-bold-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'sans-serif-bold from to noerror))
+;;;###autoload
+(defun math-symbols-sans-serif-bold-string (string &optional noerror)
+  (math-symbols-stylize-string 'sans-serif-bold string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-sans-serif-italic-region (math-symbols-stylize-region 'sans-serif-italic))
-(defalias 'math-symbols-sans-serif-italic-string (math-symbols-stylize-string 'sans-serif-italic))
+(defun math-symbols-sans-serif-italic-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'sans-serif-italic from to noerror))
+;;;###autoload
+(defun math-symbols-sans-serif-italic-string (string &optional noerror)
+  (math-symbols-stylize-string 'sans-serif-italic string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-sans-serif-bold-italic-region (math-symbols-stylize-region 'sans-serif-bold-italic))
-(defalias 'math-symbols-sans-serif-bold-italic-string (math-symbols-stylize-string 'sans-serif-bold-italic))
+(defun math-symbols-sans-serif-bold-italic-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'sans-serif-bold-italic from to noerror))
+;;;###autoload
+(defun math-symbols-sans-serif-bold-italic-string (string &optional noerror)
+  (math-symbols-stylize-string 'sans-serif-bold-italic string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-monospace-region (math-symbols-stylize-region 'monospace))
-(defalias 'math-symbols-monospace-string (math-symbols-stylize-string 'monospace))
+(defun math-symbols-monospace-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'monospace from to noerror))
+;;;###autoload
+(defun math-symbols-monospace-string (string &optional noerror)
+  (math-symbols-stylize-string 'monospace string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-superscript-region (math-symbols-stylize-region 'superscript))
-(defalias 'math-symbols-superscript-string (math-symbols-stylize-string 'superscript))
+(defun math-symbols-superscript-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'superscript from to noerror))
+;;;###autoload
+(defun math-symbols-superscript-string (string &optional noerror)
+  (math-symbols-stylize-string 'superscript string noerror))
 
 ;;;###autoload
-(defalias 'math-symbols-subscript-region (math-symbols-stylize-region 'subscript))
-(defalias 'math-symbols-subscript-string (math-symbols-stylize-string 'subscript))
+(defun math-symbols-subscript-region (from to &optional noerror)
+  (interactive "r") (math-symbols-stylize-region 'subscript from to noerror))
+;;;###autoload
+(defun math-symbols-subscript-string (string &optional noerror)
+  (math-symbols-stylize-string 'subscript string noerror))
+
 
 (defun math-symbols-super/subscript-from-tex-region (from to)
   (save-excursion
@@ -604,7 +656,7 @@ For example, `𝒫' will be converted to `mathcal{P}'."
 (provide 'math-symbols)
 
 ;; Local Variables:
-;; time-stamp-pattern: "10/Version:\\\\?[ \t]+%:y%02m%02d.%02H%02M\\\\?\n"
+;; time-stamp-pattern: "10/Modified:\\\\?[ \t]+%:y-%02m-%02d/%02H:%02M\\\\?\n"
 ;; End:
 
 ;;; math-symbols.el ends here

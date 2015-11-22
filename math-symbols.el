@@ -82,6 +82,7 @@
 
 (eval-when-compile (require 'cl))
 (require 'robin)
+(require 'helm)
 
 ;;;; TeX Data
 ;; generate table from from `unimathsymbols.txt'

@@ -1,13 +1,27 @@
-;;; math-symbols.el --- Math Symbol Input methods and conversion tools
+;;; math-symbols.el --- Math Symbol Input methods and conversion tools -*- lexical-binding: t -*-
 
 ;; Filename: math-symbols.el
 ;; Description: Math Symbol Input methods and conversion tools
 ;; Author: KAWABATA, Taichi <kawabata.taichi_at_gmail.com>
 ;; Created: 2013-03-25
-;; Version: 2.130910
+;; Version: 2.170818
 ;; Package-Requires: ((helm "1.0"))
-;; Keywords: math symbols, tex, latex
+;; Keywords: i18n languages tex
+;; Human-Keywords: math symbols
 ;; URL: https://github.com/kawabata/math-symbols
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 ;;
@@ -25,12 +39,15 @@
 ;; Also, you can convert character to TeX names by the following command.
 ;; - M-x math-symbols-to-tex-region
 ;; - M-x math-symbols-to-tex-unicode-region
-;; 
+;;
 ;; You can also input various styled mathematical symbols by input
-;; methods, or by specifying region or string, as shown in the
-;; following examples.
-;; 
-;; 
+;; methods, or by specifying region or string.
+;;
+;; - M-x toggle-input-method + math-symbols-italic (or script, etc.)
+;; - M-x math-symbols-italic-region
+;; - (math-symbols-italic-string "target string")
+;;
+;;
 ;; * Examples:
 ;;
 ;; ** TeX to Char Conversion
@@ -43,21 +60,22 @@
 ;; : "black" → "𝒷ℓ𝒶𝒸𝓀" (M-x math-symbols-script-region)
 ;; : "Quo Vadis" → "ℚ𝕦𝕠 𝕍𝕒𝕕𝕚𝕤" (M-x math-symbols-double-struck-region)
 ;; : "3+(2-1)=4" → "³⁺⁽²-¹⁾⁼⁴" (M-x math-symbols-superscript-region)
-;; 
+;;
 ;; * Required Font
-;; 
+;;
 ;; You should install Math fonts such as "STIX" to your system, and
 ;; then add it to your fontset to fully utilize this tool.  Recent
 ;; MacOS includes this font by default.  You can freely download them
 ;; from [[STIX website][http://www.stixfonts.org]].
-;; 
+;;
 ;; * Licenses
-;; 
+;;
 ;; This program incorporates `unimathsymbols.txt' data file which is
-;; based upon "LaTeX Project Public License".  This program is GPL.
-;; 
+;; licensed under "LaTeX Project Public License".  This program is
+;; GPL.
+;;
 ;; * Math Symbols Support Table
-;; 
+;;
 ;; | styles / scripts         | alphabets | greeks※ | numerals |
 ;; |--------------------------+-----------+----------+----------|
 ;; | bold                     | yes       | yes      | yes      |
@@ -82,61 +100,62 @@
 
 (eval-when-compile (require 'cl))
 (require 'robin)
-(require 'helm)
 
 ;;;; TeX Data
 ;; generate table from from `unimathsymbols.txt'
+(eval-and-compile
 (defvar math-symbols-tex-table
-  (eval-when-compile
-    (require 'bytecomp)
-    (let* ((directory (file-name-directory (or byte-compile-current-file
-                                               load-file-name
-                                               buffer-file-name)))
-           (unimath-file (expand-file-name "unimathsymbols.txt" directory))
-           (table (make-hash-table :test 'equal)))
-      (unless (file-exists-p unimath-file)
-        (error "Data file not found!"))
-      (with-temp-buffer
-        (insert-file-contents unimath-file)
-        (while (re-search-forward
-                "^[0-9A-F]+^\\(.\\)^\\([^^]+\\)?^\\([^^]+\\)?^" nil t)
-          (let* ((char (string-to-char (match-string 1)))
-                 (tex (match-string 2))
-                 (tex-unicode (match-string 3))
-                 )
-            (when (or tex tex-unicode)
-              (puthash char (cons tex tex-unicode) table)))))
-      table))
-  "UCS to TeX commands table.  Taken from 'unimathsymbols.txt'.")
+  (let* ((directory (file-name-directory (or byte-compile-current-file
+                                             load-file-name
+                                             buffer-file-name)))
+         (unimath-file (expand-file-name "unimathsymbols.txt" directory))
+         (table (make-hash-table :test 'equal)))
+    (unless (file-exists-p unimath-file)
+      (error "Data file not found!"))
+    (with-temp-buffer
+      (insert-file-contents unimath-file)
+      (while (re-search-forward
+              "^[0-9A-F]+^\\(.\\)^\\([^^]+\\)?^\\([^^]+\\)?^" nil t)
+        (let* ((char (string-to-char (match-string 1)))
+               (tex (match-string 2))
+               (tex-unicode (match-string 3))
+               )
+          (when (or tex tex-unicode)
+            (puthash char (cons tex tex-unicode) table)))))
+    table)
+  "UCS to TeX commands table.  Taken from 'unimathsymbols.txt'."))
 
 (defvar math-symbols-tex-regexp
-  (let (syms)
-    (maphash (lambda (_k v)
-               (when (car v) (push (car v) syms))) math-symbols-tex-table)
-    (regexp-opt syms))
+  (eval-when-compile
+    (let (syms)
+      (maphash (lambda (_k v)
+                 (when (car v) (push (car v) syms))) math-symbols-tex-table)
+      (regexp-opt syms)))
   "Regexp to match TeX mathematical notation.")
 
 (defvar math-symbols-tex-unicode-regexp
-  (let (syms)
-    (maphash (lambda (_k v)
-               (when (cdr v) (push (cdr v) syms))) math-symbols-tex-table)
-    (regexp-opt syms))
+  (eval-when-compile
+    (let (syms)
+      (maphash (lambda (_k v)
+                 (when (cdr v) (push (cdr v) syms))) math-symbols-tex-table)
+      (regexp-opt syms)))
   "Regexp to match TeX Unicode-math package notation.")
 
 
 (defvar math-symbols-from-tex-table
-  (let ((table (make-hash-table :test 'equal)))
-    (maphash (lambda (k v)
-               (when (car v) (puthash (car v) k table))
-               (when (cdr v) (puthash (cdr v) k table)))
-             math-symbols-tex-table)
-    table)
+  (eval-when-compile
+    (let ((table (make-hash-table :test 'equal)))
+      (maphash (lambda (k v)
+                 (when (car v) (puthash (car v) k table))
+                 (when (cdr v) (puthash (cdr v) k table)))
+               math-symbols-tex-table)
+      table))
   "Table from TeX (including Unicode-math Package) notation to Char.")
 
 ;;;; Style Data
 
 (defvar math-symbols-bold-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?0 ?𝟎 ?1 ?𝟏 ?2 ?𝟐 ?3 ?𝟑 ?4 ?𝟒 ?5 ?𝟓 ?6 ?𝟔 ?7 ?𝟕 ?8 ?𝟖
       ?9 ?𝟗 ?A ?𝐀 ?B ?𝐁 ?C ?𝐂 ?D ?𝐃 ?E ?𝐄 ?F ?𝐅 ?G ?𝐆 ?H ?𝐇 ?I
@@ -154,7 +173,7 @@
       ?Ϝ ?𝟊 ?ϝ ?𝟋 ?ϰ ?𝛞 ?ϱ ?𝛠 ?ϴ ?𝚹 ?ϵ ?𝛜 ?∇ ?𝛁)))
 
 (defvar math-symbols-bold-fraktur-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?A ?𝕬 ?B ?𝕭 ?C ?𝕮 ?D ?𝕯 ?E ?𝕰 ?F ?𝕱 ?G ?𝕲 ?H ?𝕳 ?I ?𝕴
       ?J ?𝕵 ?K ?𝕶 ?L ?𝕷 ?M ?𝕸 ?N ?𝕹 ?O ?𝕺 ?P ?𝕻 ?Q ?𝕼 ?R ?𝕽 ?S
@@ -203,7 +222,7 @@
       ?{ ?⟬ ?} ?⟭ ?Γ ?ℾ ?Π ?ℿ ?γ ?ℽ ?π ?ℼ)))
 
 (defvar math-symbols-fraktur-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?A ?𝔄 ?B ?𝔅 ?C ?ℭ ?D ?𝔇 ?E ?𝔈 ?F ?𝔉 ?G ?𝔊 ?H ?ℌ ?I ?ℑ
       ?J ?𝔍 ?K ?𝔎 ?L ?𝔏 ?M ?𝔐 ?N ?𝔑 ?O ?𝔒 ?P ?𝔓 ?Q ?𝔔 ?R ?ℜ ?S
@@ -241,7 +260,7 @@
       ?𝚞 ?v ?𝚟 ?w ?𝚠 ?x ?𝚡 ?y ?𝚢 ?z ?𝚣)))
 
 (defvar math-symbols-sans-serif-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?( ?⟮ ?) ?⟯ ?0 ?𝟢 ?1 ?𝟣 ?2 ?𝟤 ?3 ?𝟥 ?4 ?𝟦 ?5 ?𝟧 ?6 ?𝟨
       ?7 ?𝟩 ?8 ?𝟪 ?9 ?𝟫 ?< ?⟨ ?> ?⟩ ?A ?𝖠 ?B ?𝖡 ?C ?𝖢 ?D ?𝖣 ?E
@@ -253,7 +272,7 @@
       ?𝗓)))
 
 (defvar math-symbols-sans-serif-bold-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?0 ?𝟬 ?1 ?𝟭 ?2 ?𝟮 ?3 ?𝟯 ?4 ?𝟰 ?5 ?𝟱 ?6 ?𝟲 ?7 ?𝟳 ?8 ?𝟴
       ?9 ?𝟵 ?A ?𝗔 ?B ?𝗕 ?C ?𝗖 ?D ?𝗗 ?E ?𝗘 ?F ?𝗙 ?G ?𝗚 ?H ?𝗛 ?I
@@ -288,7 +307,7 @@
       ?ϰ ?𝟆 ?ϱ ?𝟈 ?ϴ ?𝞡 ?ϵ ?𝟄 ?∇ ?𝞩)))
 
 (defvar math-symbols-sans-serif-italic-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?A ?𝘈 ?B ?𝘉 ?C ?𝘊 ?D ?𝘋 ?E ?𝘌 ?F ?𝘍 ?G ?𝘎 ?H ?𝘏 ?I ?𝘐
       ?J ?𝘑 ?K ?𝘒 ?L ?𝘓 ?M ?𝘔 ?N ?𝘕 ?O ?𝘖 ?P ?𝘗 ?Q ?𝘘 ?R ?𝘙 ?S
@@ -307,17 +326,19 @@
       ?ℓ ?m ?𝓂 ?n ?𝓃 ?o ?ℴ ?p ?𝓅 ?q ?𝓆 ?r ?𝓇 ?s ?𝓈 ?t ?𝓉 ?u
       ?𝓊 ?v ?𝓋 ?w ?𝓌 ?x ?𝓍 ?y ?𝓎 ?z ?𝓏)))
 
+(eval-and-compile
 (defvar math-symbols-subscript-table
-  #s(hash-table 
+  #s(hash-table
      data
      (?( ?₍ ?) ?₎ ?+ ?₊ ?0 ?₀ ?1 ?₁ ?2 ?₂ ?3 ?₃ ?4 ?₄ ?5
       ?₅ ?6 ?₆ ?7 ?₇ ?8 ?₈ ?9 ?₉ ?= ?₌ ?a ?ₐ ?e ?ₑ ?h ?ₕ ?i ?ᵢ
       ?j ?ⱼ ?k ?ₖ ?l ?ₗ ?m ?ₘ ?n ?ₙ ?o ?ₒ ?p ?ₚ ?r ?ᵣ ?s ?ₛ ?t
       ?ₜ ?u ?ᵤ ?v ?ᵥ ?x ?ₓ ?ə ?ₔ ?β ?ᵦ ?γ ?ᵧ ?ρ ?ᵨ ?φ ?ᵩ
-      ?χ ?ᵪ ?− ?₋
+      ?χ ?ᵪ ?－ ?₋
       ;; exceptional case
-      ?- ?₋)))
+      ?- ?₋))))
 
+(eval-and-compile
 (defvar math-symbols-superscript-table
   #s(hash-table
      data
@@ -334,11 +355,11 @@
       ?ɸ ?ᶲ ?ɹ ?ʴ ?ɻ ?ʵ ?ʁ ?ʶ ?ʂ ?ᶳ ?ʃ ?ᶴ ?ʉ ?ᶶ ?ʊ ?ᶷ ?ʋ ?ᶹ ?ʌ
       ?ᶺ ?ʐ ?ᶼ ?ʑ ?ᶽ ?ʒ ?ᶾ ?ʕ ?ˤ ?ʝ ?ᶨ ?ʟ ?ᶫ ?β ?ᵝ ?γ ?ᵞ ?δ
       ?ᵟ ?θ ?ᶿ ?φ ?ᵠ ?χ ?ᵡ ?н ?ᵸ ?ნ ?ჼ ?ᴂ ?ᵆ ?ᴖ ?ᵔ ?ᴗ ?ᵕ
-      ?ᴜ ?ᶸ ?ᴝ ?ᵙ ?ᴥ ?ᵜ ?ᵻ ?ᶧ ?ᶅ ?ᶪ ?− ?⁻ ?ⵡ ?ⵯ ?一 ?㆒ ?丁 ?㆜
+      ?ᴜ ?ᶸ ?ᴝ ?ᵙ ?ᴥ ?ᵜ ?ᵻ ?ᶧ ?ᶅ ?ᶪ ?－ ?⁻ ?ⵡ ?ⵯ ?一 ?㆒ ?丁 ?㆜
       ?三 ?㆔ ?上 ?㆖ ?下 ?㆘ ?丙 ?㆛ ?中 ?㆗ ?乙 ?㆚ ?二 ?㆓
       ?人 ?㆟ ?四 ?㆕ ?地 ?㆞ ?天 ?㆝ ?甲 ?㆙ ?ꝯ ?ꝰ
       ;; exceptional case
-      ?- ?⁻)))
+      ?- ?⁻))))
 
 (defvar math-symbols-variations
   '("∩︀" ; INTERSECTION with serifs
@@ -367,36 +388,40 @@
     ))
 
 (defvar math-symbols-subscript-regexp
-  (regexp-opt
-   (loop for key being the hash-keys of math-symbols-superscript-table
-         collect (char-to-string key))))
+  (eval-when-compile
+    (regexp-opt
+     (loop for key being the hash-keys of math-symbols-superscript-table
+           collect (char-to-string key)))))
 
 (defvar math-symbols-subscript-to-regexp
-  (regexp-opt
-   (loop for key being the hash-values of math-symbols-superscript-table
-         collect (char-to-string key))))
+  (eval-when-compile
+    (regexp-opt
+     (loop for key being the hash-values of math-symbols-superscript-table
+           collect (char-to-string key)))))
 
 (defvar math-symbols-superscript-regexp
-  (regexp-opt
-   (loop for key being the hash-keys of math-symbols-subscript-table
-         collect (char-to-string key))))
+  (eval-when-compile
+    (regexp-opt
+     (loop for key being the hash-keys of math-symbols-subscript-table
+           collect (char-to-string key)))))
 
 (defvar math-symbols-superscript-to-regexp
-  (regexp-opt
-   (loop for key being the hash-values of math-symbols-subscript-table
-         collect (char-to-string key))))
+  (eval-when-compile
+    (regexp-opt
+     (loop for key being the hash-values of math-symbols-subscript-table
+           collect (char-to-string key)))))
 
 ;;;; Style Setup
 
 (dolist (s '(bold italic bold-italic script bold-script fraktur bold-fraktur
-              double-struck sans-serif sans-serif-bold sans-serif-italic 
+              double-struck sans-serif sans-serif-bold sans-serif-italic
               sans-serif-bold-italic monospace superscript subscript))
   (eval
    `(robin-define-package
      ,(format "math-symbols-%s" s)
      ,(format "Input method for math symbols %s style." s)
-     ,@(cl-loop for k being the hash-keys of 
-                (symbol-value 
+     ,@(cl-loop for k being the hash-keys of
+                (symbol-value
                  (intern (format "math-symbols-%s-table" s)))
                 using (hash-values v)
                 collect (list (char-to-string k) v)))))
@@ -415,25 +440,27 @@
 ;;;;; code generator
 ;;
 ;;(dolist (s '(bold italic bold-italic script bold-script fraktur bold-fraktur
-;;              double-struck sans-serif sans-serif-bold sans-serif-italic 
+;;              double-struck sans-serif sans-serif-bold sans-serif-italic
 ;;              sans-serif-bold-italic monospace superscript subscript))
-;;   (insert "\n;;;###autoload\n")
-;;   (insert (format "(register-input-method \"math-symbols-%s\" \"math\" \n" s))
-;;   (insert (format "                       'math-symbols-input-activate \"mt\")\n"))
-;;   (insert ";;;###autoload\n")
-;;   (insert (format "(defun math-symbols-%s-region (from to)\n" s))
-;;   (insert (format "  \"Convert REGION to %s style.\"\n" s))
-;;   (insert (format "  (interactive \"r*P\") (robin-convert-region from to \"math-symbols-%s\"))\n" s))
-;;   (insert ";;;###autoload\n")
-;;   (insert (format "(defun math-symbols-%s-string (string)\n" s))
-;;   (insert (format "  \"Convert STRING to %s style.\"\n" s))
-;;   (insert (format "  (math-symbols-string \"math-symbols-%s\" string))\n" s)))
+;;  (let ((title (mapconcat (lambda (p) (capitalize (substring p 0 2)))
+;;                          (split-string (format "%s" s) "-") "")))
+;;    (insert "\n;;;###autoload\n")
+;;    (insert (format "(register-input-method \"math-symbols-%s\" \"math\"\n" s))
+;;    (insert (format "                       'math-symbols-input-activate \"m%s\")\n" title))
+;;    (insert ";;;###autoload\n")
+;;    (insert (format "(defun math-symbols-%s-region (from to)\n" s))
+;;    (insert (format "  \"Convert REGION to %s style.\"\n" s))
+;;    (insert (format "  (interactive \"r*P\") (robin-convert-region from to \"math-symbols-%s\"))\n" s))
+;;    (insert ";;;###autoload\n")
+;;    (insert (format "(defun math-symbols-%s-string (string)\n" s))
+;;    (insert (format "  \"Convert STRING to %s style.\"\n" s))
+;;    (insert (format "  (math-symbols-string \"math-symbols-%s\" string))\n" s))))
 
 ;;;;; generated code
 
 ;;;###autoload
-(register-input-method "math-symbols-bold" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-bold" "math"
+                       'math-symbols-input-activate "mBo")
 ;;;###autoload
 (defun math-symbols-bold-region (from to)
   "Convert REGION to bold style."
@@ -444,8 +471,8 @@
   (math-symbols-string "math-symbols-bold" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-italic" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-italic" "math"
+                       'math-symbols-input-activate "mIt")
 ;;;###autoload
 (defun math-symbols-italic-region (from to)
   "Convert REGION to italic style."
@@ -456,8 +483,8 @@
   (math-symbols-string "math-symbols-italic" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-bold-italic" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-bold-italic" "math"
+                       'math-symbols-input-activate "mBoIt")
 ;;;###autoload
 (defun math-symbols-bold-italic-region (from to)
   "Convert REGION to bold-italic style."
@@ -468,8 +495,8 @@
   (math-symbols-string "math-symbols-bold-italic" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-script" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-script" "math"
+                       'math-symbols-input-activate "mSc")
 ;;;###autoload
 (defun math-symbols-script-region (from to)
   "Convert REGION to script style."
@@ -480,8 +507,8 @@
   (math-symbols-string "math-symbols-script" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-bold-script" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-bold-script" "math"
+                       'math-symbols-input-activate "mBoSc")
 ;;;###autoload
 (defun math-symbols-bold-script-region (from to)
   "Convert REGION to bold-script style."
@@ -492,8 +519,8 @@
   (math-symbols-string "math-symbols-bold-script" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-fraktur" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-fraktur" "math"
+                       'math-symbols-input-activate "mFr")
 ;;;###autoload
 (defun math-symbols-fraktur-region (from to)
   "Convert REGION to fraktur style."
@@ -504,8 +531,8 @@
   (math-symbols-string "math-symbols-fraktur" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-bold-fraktur" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-bold-fraktur" "math"
+                       'math-symbols-input-activate "mBoFr")
 ;;;###autoload
 (defun math-symbols-bold-fraktur-region (from to)
   "Convert REGION to bold-fraktur style."
@@ -516,8 +543,8 @@
   (math-symbols-string "math-symbols-bold-fraktur" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-double-struck" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-double-struck" "math"
+                       'math-symbols-input-activate "mDoSt")
 ;;;###autoload
 (defun math-symbols-double-struck-region (from to)
   "Convert REGION to double-struck style."
@@ -528,8 +555,8 @@
   (math-symbols-string "math-symbols-double-struck" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-sans-serif" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-sans-serif" "math"
+                       'math-symbols-input-activate "mSaSe")
 ;;;###autoload
 (defun math-symbols-sans-serif-region (from to)
   "Convert REGION to sans-serif style."
@@ -540,8 +567,8 @@
   (math-symbols-string "math-symbols-sans-serif" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-sans-serif-bold" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-sans-serif-bold" "math"
+                       'math-symbols-input-activate "mSaSeBo")
 ;;;###autoload
 (defun math-symbols-sans-serif-bold-region (from to)
   "Convert REGION to sans-serif-bold style."
@@ -552,8 +579,8 @@
   (math-symbols-string "math-symbols-sans-serif-bold" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-sans-serif-italic" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-sans-serif-italic" "math"
+                       'math-symbols-input-activate "mSaSeIt")
 ;;;###autoload
 (defun math-symbols-sans-serif-italic-region (from to)
   "Convert REGION to sans-serif-italic style."
@@ -564,8 +591,8 @@
   (math-symbols-string "math-symbols-sans-serif-italic" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-sans-serif-bold-italic" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-sans-serif-bold-italic" "math"
+                       'math-symbols-input-activate "mSaSeBoIt")
 ;;;###autoload
 (defun math-symbols-sans-serif-bold-italic-region (from to)
   "Convert REGION to sans-serif-bold-italic style."
@@ -576,8 +603,8 @@
   (math-symbols-string "math-symbols-sans-serif-bold-italic" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-monospace" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-monospace" "math"
+                       'math-symbols-input-activate "mMo")
 ;;;###autoload
 (defun math-symbols-monospace-region (from to)
   "Convert REGION to monospace style."
@@ -588,8 +615,8 @@
   (math-symbols-string "math-symbols-monospace" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-superscript" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-superscript" "math"
+                       'math-symbols-input-activate "mSu")
 ;;;###autoload
 (defun math-symbols-superscript-region (from to)
   "Convert REGION to superscript style."
@@ -600,8 +627,8 @@
   (math-symbols-string "math-symbols-superscript" string))
 
 ;;;###autoload
-(register-input-method "math-symbols-subscript" "math" 
-                       'math-symbols-input-activate "mt")
+(register-input-method "math-symbols-subscript" "math"
+                       'math-symbols-input-activate "mSu")
 ;;;###autoload
 (defun math-symbols-subscript-region (from to)
   "Convert REGION to subscript style."
@@ -624,7 +651,7 @@
               using (hash-values v)
               collect (list k (char-to-string v)))))
 ;;;###autoload
-(register-input-method "math-symbols-tex" "math" 
+(register-input-method "math-symbols-tex" "math"
                        'math-symbols-input-activate "mt")
 
 ;;;; Unicode to/from TeX Commands
@@ -664,7 +691,7 @@
               (concat math-symbols-superscript-to-regexp "+") nil t)
         (let ((length (length (match-string 0)))
               (chars (save-match-data
-                       (ucs-normalize-NFKC-string 
+                       (ucs-normalize-NFKC-string
                         (buffer-substring (match-beginning 0) (match-end 0))))))
           (replace-match
            (concat "^" (if (< 1 length) "{") chars (if (< 1 length) "}")))))
@@ -673,7 +700,7 @@
               (concat math-symbols-subscript-to-regexp "+") nil t)
         (let ((length (length (match-string 0)))
               (chars (save-match-data
-                       (ucs-normalize-NFKC-string 
+                       (ucs-normalize-NFKC-string
                         (buffer-substring (match-beginning 0) (match-end 0))))))
           (replace-match
            (concat "_" (if (< 1 length) "{") chars (if (< 1 length) "}"))))))))
@@ -698,7 +725,7 @@ For example, '\Phi' will be converted to '𝛷'."
 ;;;###autoload
 (defun math-symbols-to-tex-region (from to &optional unicode)
   "Convert math symbols to TeX command in REGION.
-For example, `𝒫' will be converted to `mathcal{P}'.  
+For example, `𝒫' will be converted to `mathcal{P}'.
 Optional argument UNICODE specifies to use unicode-math package."
   (interactive "r*")
   (save-excursion
@@ -733,7 +760,7 @@ Optional argument UNICODE specifies to use unicode-math package."
   "Interactively input math characters from symbols."
   (interactive
    (let ((completion-ignore-case nil))
-     (list (completing-read "Symbol (press tab to list): " 
+     (list (completing-read "Symbol (press tab to list): "
                             math-symbols-name-char-list))))
   (when (string-match "(\\(.\\))$" name)
     (insert (match-string 1 name))))
@@ -778,13 +805,10 @@ Optional argument UNICODE specifies to use unicode-math package."
   (helm :sources 'math-symbols-helm-source
         :keymap helm-map))
 
-
-;;; PostScript
 (provide 'math-symbols)
 
+;;; math-symbols.el ends here
+
 ;; Local Variables:
-;; lexical-binding: t
 ;; time-stamp-pattern: "10/Version:\\\\?[ \t]+2.%02y%02m%02d\\\\?\n"
 ;; End:
-
-;;; math-symbols.el ends here

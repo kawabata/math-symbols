@@ -4,8 +4,7 @@
 ;; Description: Math Symbol Input methods and conversion tools
 ;; Author: KAWABATA, Taichi <kawabata.taichi_at_gmail.com>
 ;; Created: 2013-03-25
-;; Version: 2.170818
-;; Package-Requires: ((helm "1.0"))
+;; Version: 2.201006
 ;; Keywords: i18n languages tex
 ;; Human-Keywords: math symbols
 ;; URL: https://github.com/kawabata/math-symbols
@@ -27,14 +26,14 @@
 ;;
 ;; -*- mode: org -*-
 ;; * Description
-;; 
+;;
 ;; This utility lets you input math symbols by TeX names
 ;; with the following commands.
 ;;
 ;; - M-x toggle-input-method + math-symbols-tex
 ;; - M-x math-symbols-from-tex-region
 ;; - M-x math-symbols-insert
-;; - M-x math-symbols-helm
+;; - M-x math-symbols-ivy
 ;;
 ;; Also, you can convert character to TeX names by the following command.
 ;; - M-x math-symbols-to-tex-region
@@ -88,11 +87,11 @@
 ;; | sans-serif bold (italic) | yes       | yes      | yes      |
 ;; | subscript                | partial   | no       | yes      |
 ;; | superscript              | partial   | no       | yes      |
-;; 
+;;
 ;;  ※ `greeks' include greek symbols and nabla (ϵ, ϑ, ϰ, ϕ, ϱ, ϖ, ∇).
-;; 
+;;
 ;; * References
-;; 
+;;
 ;; - UTR#25 UNICODE SUPPORT FOR MATHEMATICS
 ;;   (http://www.unicode.org/reports/tr25/tr25-6.html)
 
@@ -746,7 +745,6 @@ Optional argument UNICODE specifies to use unicode-math package."
   (interactive "r*")
   (math-symbols-to-tex-region from to t))
 
-
 ;;;; simple interface
 (defvar math-symbols-name-char-list
   (let (result)
@@ -765,45 +763,53 @@ Optional argument UNICODE specifies to use unicode-math package."
   (when (string-match "(\\(.\\))$" name)
     (insert (match-string 1 name))))
 
-
-;;;; helm interface
-(defvar math-symbols-len
-  (loop for key being the hash-keys of math-symbols-from-tex-table
-        maximize (length key)))
-
-(defvar math-symbols-helm-source
-  '((name . "Math Symbols")
-    (init . math-symbols-helm-init)
-    (candidate-number-limit . 9999)
-    (candidates-in-buffer)
-    (mode-line . helm-mode-line-string)
-    (action . (("Insert" . math-symbols-helm-insert-char))))
-  "Source for collecting math symbols.")
-
-(defun math-symbols-helm-init ()
-  "Initialize an helm buffer with math symbols."
-  (with-current-buffer (helm-candidate-buffer
-                        (get-buffer-create "*math-symbols helm*"))
-    (loop for key being the hash-keys of math-symbols-from-tex-table
-          for val = (gethash key math-symbols-from-tex-table)
-          for len = (length key)
-          for diff = (+ (- math-symbols-len len) 2)
-          unless (string= "" key)
-          do (insert (concat key ":" (make-string diff ? ))
-                     val "\n"))))
-
-(defun math-symbols-helm-insert-char (candidate)
-  (with-helm-current-buffer
-    (insert
-     (replace-regexp-in-string
-      " " ""
-      (cadr (split-string candidate ":"))))))
-
 ;;;###autoload
-(defun math-symbols-helm ()
+(defun math-symbols-ivy ()
+  "Ivy interface for math-symbols.
+Use double key to match backslash or space."
   (interactive)
-  (helm :sources 'math-symbols-helm-source
-        :keymap helm-map))
+  (ivy-read "math-symbols: " math-symbols-name-char-list
+            :action (lambda (f) (string-match "(\\(.\\))$" f) (insert (match-string 1 f)))
+            :require-match t))
+
+;;;;;; helm interface
+;;(defvar math-symbols-len
+;;  (loop for key being the hash-keys of math-symbols-from-tex-table
+;;        maximize (length key)))
+;;
+;;(defvar math-symbols-helm-source
+;;  '((name . "Math Symbols")
+;;    (init . math-symbols-helm-init)
+;;    (candidate-number-limit . 9999)
+;;    (candidates-in-buffer)
+;;    (mode-line . helm-mode-line-string)
+;;    (action . (("Insert" . math-symbols-helm-insert-char))))
+;;  "Source for collecting math symbols.")
+;;
+;;(defun math-symbols-helm-init ()
+;;  "Initialize an helm buffer with math symbols."
+;;  (with-current-buffer (helm-candidate-buffer
+;;                        (get-buffer-create "*math-symbols helm*"))
+;;    (loop for key being the hash-keys of math-symbols-from-tex-table
+;;          for val = (gethash key math-symbols-from-tex-table)
+;;          for len = (length key)
+;;          for diff = (+ (- math-symbols-len len) 2)
+;;          unless (string= "" key)
+;;          do (insert (concat key ":" (make-string diff ? ))
+;;                     val "\n"))))
+;;
+;;(defun math-symbols-helm-insert-char (candidate)
+;;  (with-helm-current-buffer
+;;    (insert
+;;     (replace-regexp-in-string
+;;      " " ""
+;;      (cadr (split-string candidate ":"))))))
+;;
+;;;;;###autoload
+;;(defun math-symbols-helm ()
+;;  (interactive)
+;;  (helm :sources 'math-symbols-helm-source
+;;        :keymap helm-map))
 
 (provide 'math-symbols)
 
